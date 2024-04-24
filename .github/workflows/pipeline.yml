@@ -1,38 +1,32 @@
-name: CI/CD Pipeline
+name: CI/CD pipeline
 
 on:
   push:
     branches:
-      - main
-  pull_request:
+      - lab9
+    
+env:
+  BUILD_ARTIFACT_NAME: "package"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Build application
-        run: |
-          # Commande pour construire l'application
-          # Assurez-vous de générer un package et de le stocker comme un artifact
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
 
-      - name: Run static analysis and unit tests
-        run: |
-          # Commandes pour exécuter les analyses statiques (linter, typage statique) et les tests unitaires
-
-  deploy:
+  deploy-qa:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-
     steps:
-      - name: Deploy to QA
-        run: |
-          # Commande pour déployer l'application sur l'environnement QA
+      - uses: actions/checkout@v3
 
-      - name: Deploy to PROD
-        run: |
-          # Commande pour déployer l'application sur l'environnement de production
+  deploy-prod:
+    needs: deploy-qa
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
