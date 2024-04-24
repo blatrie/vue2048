@@ -1,9 +1,29 @@
-name: CI/CD pipeline
+name: CI/CD pipeline lab 9
 
 on:
   push:
     branches:
-      - lab9
+      - main
+    paths:
+      - '!docs/**'
+      - '**'
+  pull_request:
+    paths:
+      - '!docs/**'
+      - '**'
+  workflow_dispatch:
+    inputs:
+      run_static_analysis:
+        description: 'Run static analysis?'
+        default: 'true'
+        required: true
+      run_tests:
+        description: 'Run tests?'
+        default: 'true'
+        required: true
+  schedule:
+    - cron: "0 8 * * 1" 
+    
     
 env:
   BUILD_ARTIFACT_NAME: "package"
