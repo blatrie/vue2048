@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - lab9
     paths:
       - '!docs/**'
       - '**'
@@ -32,12 +33,35 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: latest
+
+      - name: Install dependencies
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare pnpm@latest-8 --activate
+          pnpm config set store-dir .pnpm-store
+          pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.BUILD_ARTIFACT_NAME }}
+          path: dist/
 
   deploy-qa:
     needs: build
