@@ -1,4 +1,4 @@
-name: CI/CD pipeline lab 9 #
+name: CI/CD pipeline lab 9 
 
 on:
   push:
@@ -15,11 +15,11 @@ on:
   workflow_dispatch:
     inputs:
       run_static_analysis:
-        description: 'Run static analysis?'
+        description: 'Run static analysis (linter and type checking) ?'
         default: 'true'
         required: true
       run_tests:
-        description: 'Run tests?'
+        description: 'Run tests ?'
         default: 'true'
         required: true
   schedule:
