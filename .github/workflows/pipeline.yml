@@ -128,11 +128,14 @@ jobs:
           name: ${{ env.BUILD_ARTIFACT_NAME }}  
           path: dist/
 
+      - name: Install SWA
+        run: pnpm install @azure/static-web-apps-cli
+
       - name: Deploy to QA
-        env:
-          AZURE_TOKEN_QA: ${{ secrets.AZURE_TOKEN_QA }}
-        run: pnpm dlx @azure/static-web-apps-cli deploy ./dist --token $AZURE_TOKEN_QA --app-name stapp-vue2048-QA --environment production
-          #pnpm dlx @azure/static-web-apps-cli deploy ./dist --app-name stapp-vue2048-QA --env=production 
+        env: 
+          TOKEN_AZURE_QA: ${{ secrets.TOKEN_AZURE_QA }}
+        run: |
+            pnpm swa deploy ./dist --app-name stapp-vue2048-QA -d $TOKEN_AZURE_QA
   
 
   deploy-prod:
