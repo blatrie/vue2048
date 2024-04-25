@@ -129,7 +129,7 @@ jobs:
           path: dist/
 
       - name: Deploy to QA
-        run: pnpm dlx @azure/static-web-apps-cli deploy ./dist --app-name stapp-vue2048-QA --env=qa
+        run: pnpm dlx @azure/static-web-apps-cli deploy ./dist --app-name stapp-vue2048-QA --env=production -token ${{ secrets.AZURE_TOKEN_QA }}
   
 
   deploy-prod:
@@ -163,7 +163,7 @@ jobs:
           path: dist/
 
       - name: Deploy to Production
-        run: pnpm dlx @azure/static-web-apps-cli deploy ./dist --app-name stapp-vue2048-prod --env=production
+        run: pnpm dlx @azure/static-web-apps-cli deploy ./dist --app-name stapp-vue2048-prod --env=production -token ${{ secrets.AZURE_TOKEN_PROD }}
   
 
       
