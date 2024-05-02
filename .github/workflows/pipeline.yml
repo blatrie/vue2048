@@ -1,0 +1,185 @@
+name: CI/CD pipeline lab 9 
+
+on:
+  push:
+    branches: # workflow déclenché pour les branches main et lab9
+      - main
+      - lab9
+    paths: # tous les fichiers seront pris en compte, sauf ceux du répertoire "docs"
+      - '!docs/**'
+      - '**'
+  pull_request: # workflow déclenché lors d'une pull request si les changements ne concernent pas les fichiers de "docs"
+    paths:
+      - '!docs/**'
+      - '**'
+  workflow_dispatch: # workflow peut être déclenché manuellement depuis l'interface utilisateur GitHub
+    inputs: # 2 options pouvant être activées (true) ou désactivées lors de l'exécution du workflow (choix de lancer analyse statique et/ou tests)
+      run_static_analysis:
+        description: 'Run static analysis (linter and type checking) ?'
+        default: 'true'
+        required: true
+      run_tests:
+        description: 'Run tests ?'
+        default: 'true'
+        required: true
+  schedule: # pipeline lancé automatiquement toutes les semaines le lundi à 8h
+    - cron: "0 8 * * 1" 
+    
+    
+env:
+  BUILD_ARTIFACT_NAME: "package"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # workfow s'exécutera sur la dernière version d'ubuntu
+    # workfow exécuté si l'une des conditions suivantes est vraie
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code 
+        uses: actions/checkout@v3
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+
+      - name: Install dependencies
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare pnpm@latest-8 --activate
+          pnpm config set store-dir .pnpm-store
+          pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.BUILD_ARTIFACT_NAME }}
+          path: dist/
+          retention-days: ${{ github.ref == 'refs/heads/main' && 7 || 1 }} # si le package est issu de la branche principale alors sa durée de rétention doit être d'une semaine, sinon de 24h
+
+  test-and-analyze:
+    runs-on: ubuntu-latest
+    needs: build
+    # différentes analyses statiques (linter et typage statique) et les tests unitaires ne sont pas exécutés lors d'un commit sur le main contrairement au build
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        
+      - name: Install dependencies
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare pnpm@latest-8 --activate
+          pnpm config set store-dir .pnpm-store
+          pnpm install
+        
+      - name: Run linter # linter (idem pour les autres étapes) exécuté si workflow n'est pas déclenché par exécution manuelle ou si l'option correspondante a été activée
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_static_analysis == 'true'
+        run: pnpm lint
+        
+      - name: Run static type checking
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_static_analysis == 'true'
+        run: pnpm type-check
+        
+      - name: Run unit tests
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_tests == 'true'
+        run: pnpm test
+
+  deploy-qa:
+    needs: build
+    runs-on: ubuntu-latest
+    # déploiement se fait seulement depuis une exécution manuelle
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+
+      - name: Install dependencies
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare pnpm@latest-8 --activate
+          pnpm config set store-dir .pnpm-store
+          pnpm install
+
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.BUILD_ARTIFACT_NAME }}  
+          path: dist/
+
+      - name: Install SWA # installation de la CLI pour les applications web statiques d'Azure
+        run: pnpm install @azure/static-web-apps-cli
+
+      - name: Deploy to QA # déploiement de l'artefact vers l'environnement de QA en utilisant la CLI SWA
+        env: 
+          AZURE_TOKEN_QA: ${{ secrets.AZURE_TOKEN_QA }} # utilisation des secrets GitHub pour stocker les tokens Azure
+        run: |
+            pnpm swa deploy ./dist --app-name stapp-vue2048-QA -d $AZURE_TOKEN_QA
+  
+
+  deploy-prod:
+    needs: deploy-qa
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+
+      - name: Install dependencies
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare pnpm@latest-8 --activate
+          pnpm config set store-dir .pnpm-store
+          pnpm install
+
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.BUILD_ARTIFACT_NAME }}  
+          path: dist/
+
+      - name: Install SWA
+        run: pnpm install @azure/static-web-apps-cli
+
+      - name: Deploy to Production
+        env: 
+          AZURE_TOKEN_PROD: ${{ secrets.AZURE_TOKEN_PROD }}
+        run: |
+            pnpm swa deploy ./dist --app-name stapp-vue2048-prod -d $AZURE_TOKEN_PROD
+  
+
+      
